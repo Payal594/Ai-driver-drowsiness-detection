@@ -41,13 +41,13 @@ num_classes = len(labels)
 
 
 # ============================================================
-# Load Model from Hugging Face
+# Load Model
 # ============================================================
 
 @st.cache_resource
 def load_model():
 
-    st.write("⏳ Loading trained ViT model...")
+    st.info("⏳ Loading trained ViT model...")
 
     model_path = hf_hub_download(
         repo_id="payal-preeti/driver-drowsiness-vit",
@@ -77,17 +77,17 @@ model = load_model()
 
 
 # ============================================================
-# Title
+# UI
 # ============================================================
 
 st.title("🚗 Driver Drowsiness Detection")
 
 st.write(
-    "Upload a driver's image to detect the driver's current state."
+    "Upload a driver's image to detect the current driver state."
 )
 
 st.info(
-    "The model uses Vision Transformer (ViT) trained on four classes: "
+    "ViT model trained on four classes: "
     "Closed, Open, no_yawn, and yawn."
 )
 
@@ -118,21 +118,16 @@ if uploaded_file is not None:
         use_container_width=True
     )
 
-
     # --------------------------------------------------------
     # Preprocessing
-    # IMPORTANT:
-    # Same preprocessing used during training
-    # Resize(224,224) + ToTensor()
     # --------------------------------------------------------
 
     input_tensor = preprocess_frame(
         np.array(image)
     ).to(device)
 
-
     # --------------------------------------------------------
-    # Model Prediction
+    # Prediction
     # --------------------------------------------------------
 
     with torch.no_grad():
@@ -153,12 +148,10 @@ if uploaded_file is not None:
             0, pred
         ].item()
 
-
     state = labels[str(pred)]
 
-
     # ========================================================
-    # Results
+    # Result
     # ========================================================
 
     st.subheader(
@@ -169,12 +162,14 @@ if uploaded_file is not None:
         f"Confidence: **{confidence * 100:.2f}%**"
     )
 
-
     # ========================================================
     # Drowsiness Decision
     # ========================================================
 
-    if state in ["Closed", "yawn"] and confidence >= 0.90:
+    if (
+        state in ["Closed", "yawn"]
+        and confidence >= 0.90
+    ):
 
         st.error(
             "⚠️ Driver appears drowsy!"
@@ -186,9 +181,8 @@ if uploaded_file is not None:
             "✅ Driver appears alert"
         )
 
-
     # ========================================================
-    # Probability Distribution
+    # Probabilities
     # ========================================================
 
     st.subheader("Class Probabilities")
