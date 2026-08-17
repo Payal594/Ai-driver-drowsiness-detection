@@ -8,7 +8,6 @@ device = torch.device(
 )
 
 
-# Same preprocessing used during training
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor()
@@ -17,7 +16,9 @@ transform = transforms.Compose([
 
 def preprocess_frame(frame):
 
-    image = Image.fromarray(frame).convert("RGB")
+    image = Image.fromarray(
+        frame
+    ).convert("RGB")
 
     image = transform(image)
 

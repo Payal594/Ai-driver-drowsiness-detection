@@ -3,6 +3,7 @@ import torch
 import timm
 import json
 import numpy as np
+
 from PIL import Image
 from huggingface_hub import hf_hub_download
 
@@ -40,25 +41,25 @@ num_classes = len(labels)
 
 
 # ============================================================
-# Download Model from Hugging Face
+# Load Model from Hugging Face
 # ============================================================
 
 @st.cache_resource
 def load_model():
+
+    st.write("⏳ Loading trained ViT model...")
 
     model_path = hf_hub_download(
         repo_id="payal-preeti/driver-drowsiness-vit",
         filename="vit_final_model.pth"
     )
 
-    # Create the same ViT architecture used during training
     model = timm.create_model(
         "vit_base_patch16_224",
         pretrained=False,
         num_classes=num_classes
     )
 
-    # Load trained weights
     state_dict = torch.load(
         model_path,
         map_location=device
@@ -72,41 +73,27 @@ def load_model():
     return model
 
 
-# ============================================================
-# Load Model
-# ============================================================
-
-try:
-
-    with st.spinner("Loading trained ViT model..."):
-        model = load_model()
-
-    st.success("✅ Model loaded successfully")
-
-except Exception as e:
-
-    st.error("❌ Failed to load model")
-
-    st.exception(e)
-
-    st.stop()
+model = load_model()
 
 
 # ============================================================
-# Application UI
+# Title
 # ============================================================
 
 st.title("🚗 Driver Drowsiness Detection")
-st.subheader("Vision Transformer (ViT)")
 
 st.write(
-    "Upload a driver's image to detect whether the driver "
-    "is alert or showing signs of drowsiness."
+    "Upload a driver's image to detect the driver's current state."
+)
+
+st.info(
+    "The model uses Vision Transformer (ViT) trained on four classes: "
+    "Closed, Open, no_yawn, and yawn."
 )
 
 
 # ============================================================
-# Image Upload
+# Upload Image
 # ============================================================
 
 uploaded_file = st.file_uploader(
@@ -121,7 +108,9 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(
+        uploaded_file
+    ).convert("RGB")
 
     st.image(
         image,
@@ -129,11 +118,18 @@ if uploaded_file is not None:
         use_container_width=True
     )
 
-    # Convert image to NumPy
-    image_array = np.array(image)
 
-    # Preprocess exactly as during inference
-    input_tensor = preprocess_frame(image_array).to(device)
+    # --------------------------------------------------------
+    # Preprocessing
+    # IMPORTANT:
+    # Same preprocessing used during training
+    # Resize(224,224) + ToTensor()
+    # --------------------------------------------------------
+
+    input_tensor = preprocess_frame(
+        np.array(image)
+    ).to(device)
+
 
     # --------------------------------------------------------
     # Model Prediction
@@ -153,66 +149,41 @@ if uploaded_file is not None:
             dim=1
         ).item()
 
-        confidence = probabilities[0][pred].item()
+        confidence = probabilities[
+            0, pred
+        ].item()
 
-
-    # --------------------------------------------------------
-    # Get Predicted Class
-    # --------------------------------------------------------
 
     state = labels[str(pred)]
 
 
     # ========================================================
-    # Display Prediction
+    # Results
     # ========================================================
 
-    st.divider()
+    st.subheader(
+        f"Prediction: {state}"
+    )
 
-    st.subheader("📊 Prediction Results")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.metric(
-            "Predicted State",
-            state
-        )
-
-    with col2:
-
-        st.metric(
-            "Confidence",
-            f"{confidence * 100:.2f}%"
-        )
+    st.write(
+        f"Confidence: **{confidence * 100:.2f}%**"
+    )
 
 
     # ========================================================
     # Drowsiness Decision
     # ========================================================
 
-    # Drowsy classes in your dataset:
-    # Closed eyes and yawning
-    #
-    # Confidence threshold prevents weak predictions
-    # from immediately being considered drowsiness.
-
     if state in ["Closed", "yawn"] and confidence >= 0.90:
 
         st.error(
-            "⚠️ DRIVER APPEARS DROWSY!"
-        )
-
-        st.warning(
-            f"Detected state: {state} "
-            f"with {confidence * 100:.2f}% confidence."
+            "⚠️ Driver appears drowsy!"
         )
 
     else:
 
         st.success(
-            "✅ DRIVER APPEARS ALERT"
+            "✅ Driver appears alert"
         )
 
 
@@ -220,17 +191,21 @@ if uploaded_file is not None:
     # Probability Distribution
     # ========================================================
 
-    st.divider()
-
     st.subheader("Class Probabilities")
 
-    for i, class_name in labels.items():
+    for i in range(num_classes):
 
-        probability = probabilities[0][int(i)].item()
+        class_name = labels[str(i)]
+
+        probability = probabilities[
+            0, i
+        ].item()
 
         st.write(
-            f"**{class_name}**: "
+            f"{class_name}: "
             f"{probability * 100:.2f}%"
         )
 
-        st.progress(probability)
+        st.progress(
+            float(probability)
+        )
